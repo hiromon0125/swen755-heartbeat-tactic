@@ -21,6 +21,9 @@ dependencies {
 
     // This dependency is used by the application.
     implementation(libs.guava)
+
+    // Used to serialize/deserialize byte data
+    implementation("org.apache.commons:commons-lang3:3.20.0")
 }
 
 // Apply a specific Java toolchain to ease working on different environments.
