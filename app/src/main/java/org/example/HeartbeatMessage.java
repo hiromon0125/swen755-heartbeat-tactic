@@ -50,4 +50,11 @@ public class HeartbeatMessage implements Serializable {
     public byte[] toByteArray() {
         return SerializationUtils.serialize(this);
     }
+
+    @Override
+    public String toString() {
+        return "HeartbeatMessage(serviceId=" + this.serviceId +
+                ", timestamp=" + this.timestamp +
+                ", status=" + this.status.toString() + ")";
+    }
 }

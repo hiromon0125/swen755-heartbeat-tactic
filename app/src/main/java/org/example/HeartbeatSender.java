@@ -10,49 +10,67 @@ import java.util.concurrent.TimeUnit;
 
 /** Regularly sends a heartbeat signal to a receiver **/
 public class HeartbeatSender implements Runnable {
-    private int sendingIntervalMs;
-    private DatagramSocket udpSocket;
-    private String serviceId;
+    private final long sendingIntervalMs;
+    private final DatagramSocket udpSocket;
+    private final String serviceId;
+    private final InetAddress address;
+    private final int port;
 
-    public static final int DEFAULT_INTERVAL_MS = 100;
+
+    public static final long DEFAULT_INTERVAL_MS = 100L;
 
     protected HeartbeatSender(
-            int sendingIntervalMs,
+            long sendingIntervalMs,
             DatagramSocket udpSocket,
-            String serviceId
+            String serviceId,
+            InetAddress address,
+            int port
     ) {
         this.sendingIntervalMs = sendingIntervalMs;
         this.udpSocket = udpSocket;
         this.serviceId = serviceId;
+        this.address = address;
+        this.port = port;
     }
 
     public static HeartbeatSender create(
-        int sendingIntervalMs,
+        long sendingIntervalMs,
         DatagramSocket udpSocket,
-        String serviceId
+        String serviceId,
+        InetAddress address,
+        int port
     ) {
         return new HeartbeatSender(
                 sendingIntervalMs,
                 udpSocket,
-                serviceId
+                serviceId,
+                address,
+                port
         );
     }
 
     public static HeartbeatSender create(
             DatagramSocket udpSocket,
-            String serviceId
+            String serviceId,
+            InetAddress address,
+            int port
     ) {
         return HeartbeatSender.create(
                 DEFAULT_INTERVAL_MS,
                 udpSocket,
-                serviceId
+                serviceId,
+                address,
+                port
         );
     }
 
     /**
      * Starting the thread begins sending heartbeat messages.
      */
+    @Override
     public void run() {
+        System.out.println("Heartbeat for service " + serviceId + " started.");
+
         ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
         executorService.scheduleAtFixedRate(
                 this::sendMessage,
@@ -64,23 +82,20 @@ public class HeartbeatSender implements Runnable {
 
     private void sendMessage() {
         HeartbeatMessage message = HeartbeatMessage.createOk(this.serviceId);
+        System.out.println("Sent message: " + message);
         byte[] messageBytes = message.toByteArray();
 
-        DatagramPacket packet = new DatagramPacket(messageBytes, messageBytes.length);
-        try {
-            udpSocket.receive(packet);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-
-        InetAddress address = packet.getAddress();
-        int port = packet.getPort();
-        packet = new DatagramPacket(messageBytes, messageBytes.length, address, port);
+        DatagramPacket packet = new DatagramPacket(
+                messageBytes,
+                messageBytes.length,
+                this.address,
+                this.port
+        );
 
         try {
             udpSocket.send(packet);
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            e.printStackTrace();
         }
     }
 
