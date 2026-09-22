@@ -2,12 +2,10 @@ package org.example;
 
 import org.apache.commons.lang3.SerializationUtils;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.time.Instant;
 
+/** Message sent by {@link org.example.HeartbeatSender} **/
 public class HeartbeatMessage implements Serializable {
     private String serviceId;
     private Instant timestamp;
