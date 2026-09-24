@@ -3,7 +3,6 @@ package org.example;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
-import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
@@ -35,10 +34,9 @@ public final class Monitor {
                         heartbeatReceived = true;
                         failureReported = false;
                         // Print the heartbeat message
-                        System.out.println("Received heartbeat :" + message.toString());
+                        System.out.println("Received heartbeat :" + message);
                     }
-                }
-                catch (SocketTimeoutException e) {
+                } catch (SocketTimeoutException e) {
                     // No packet arrived during this wait. Continue to the health check below
                 }
                 // Check if the heartbeat has been received within the expected time frame
@@ -48,28 +46,19 @@ public final class Monitor {
                 if (!failureReported) {
                     if (!heartbeatReceived
                             && now - monitorStartNanos >= TimeUnit.SECONDS.toNanos(10)) {
-                        System.out.println(
-                                "Startup timeout: no heartbeat received from SensorReader191."
-                                );
+                        System.out.println("Startup timeout: no heartbeat received from SensorReader191.");
                         failureReported = true;
 
                     } else if (heartbeatReceived
                             && now - lastHeartbeatNanos >= TimeUnit.MILLISECONDS.toNanos(500)) {
-                        System.out.println(
-                                "Heartbeat timeout: SensorReader191 may have failed."
-                                );
+                        System.out.println("Heartbeat timeout: SensorReader191 may have failed.");
                         failureReported = true;
                     }
                 }
-
-
-
             }
 
         } catch (IOException e) {
-
             e.printStackTrace();
         }
-
     }
 }

@@ -3,8 +3,6 @@ package org.example;
 import java.io.IOException;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
-import java.net.SocketException;
-import java.net.UnknownHostException;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
@@ -27,7 +25,7 @@ public final class SensorReader {
         // Convert cycle interval from milliseconds to nanoseconds
         long cycleIntervalNanos = TimeUnit.MILLISECONDS.toNanos(CYCLE_INTERVAL_MS);
         // Create a DatagramSocket for sending heartbeat messages
-        try (DatagramSocket socket = new DatagramSocket()){
+        try (DatagramSocket socket = new DatagramSocket()) {
             // Create a HeartbeatSender instance to send heartbeat messages
             HeartbeatSender heartbeatSender = HeartbeatSender.create(
                     socket,
@@ -66,24 +64,24 @@ public final class SensorReader {
     /**
      * Mocking the reading of inputs from sensors
      *  and detecting objects from the output.
-     *  Generates one simultaed random distance reading per call to readDistanceMeters() method.
+     *  occasionally, the sensor reading may be corrupted, which is simulated by returning a non-numeric value.
      */
     private static class Sensor {
         private static final double CORRUPTION_PROBABILITY = 0.01; // 1% chance of corruption
         private final Random rand = new Random();
-        
+
         /**
          * Simulates reading a raw distance measurement from a sensor, which may be corrupted.
          * 7.x is a smulated corrupted reading that is not a valid numeric value.
          * @return A string representing the distance measurement, which may be a valid numeric value or a corrupted value.
          */
         private String readRawDistance() {
-            if (rand.nextDouble() <= CORRUPTION_PROBABILITY) {
+            if (rand.nextDouble() < CORRUPTION_PROBABILITY) {
                 return "7.x"; // Simulated corrupted numeric reading
             }
             return Double.toString(rand.nextDouble() * 20);
         }
-        
+
 
 
     }

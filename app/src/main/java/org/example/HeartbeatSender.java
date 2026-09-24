@@ -6,7 +6,7 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 
 
-/** Regularly sends a heartbeat signal to a receiver **/
+/** Sends one heartbeat whenever sendMessage is called **/
 public class HeartbeatSender  {
     private final DatagramSocket udpSocket;
     private final String serviceId;
@@ -14,15 +14,15 @@ public class HeartbeatSender  {
     private final int port;
 
 
-    
+
 
     protected HeartbeatSender(
             DatagramSocket udpSocket,
             String serviceId,
             InetAddress address,
             int port
-    ) {
-        
+            ) {
+
         this.udpSocket = udpSocket;
         this.serviceId = serviceId;
         this.address = address;
@@ -30,17 +30,17 @@ public class HeartbeatSender  {
     }
 
     public static HeartbeatSender create(
-        DatagramSocket udpSocket,
-        String serviceId,
-        InetAddress address,
-        int port
-    ) {
+            DatagramSocket udpSocket,
+            String serviceId,
+            InetAddress address,
+            int port
+            ) {
         return new HeartbeatSender(
                 udpSocket,
                 serviceId,
                 address,
                 port
-        );
+                );
     }
 
 
@@ -53,9 +53,9 @@ public class HeartbeatSender  {
                 messageBytes.length,
                 this.address,
                 this.port
-        );
-            udpSocket.send(packet);
-            System.out.println("Sent heartbeat: " + message.toString());
+                );
+        udpSocket.send(packet);
+        System.out.println("Sent heartbeat: " + message);
     }
 
 }

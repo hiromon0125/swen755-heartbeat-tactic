@@ -35,7 +35,7 @@ java {
 
 application {
     // Define the main class for the application.
-    mainClass = "org.example.App"
+    mainClass = "org.example.SensorReader"
 }
 
 tasks.register<JavaExec>("runMonitor") {
