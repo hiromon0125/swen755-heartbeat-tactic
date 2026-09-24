@@ -59,10 +59,7 @@ public final class SensorReader {
                     TimeUnit.NANOSECONDS.sleep(remainingNanos);
                 } 
             }
-
         }
-
-
     }
 
     /**

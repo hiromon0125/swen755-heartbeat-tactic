@@ -19,10 +19,11 @@ These launch independent Java entry points: `org.example.Monitor` and
 `org.example.SensorReader`, communicating over UDP on Localhost:4445.
 
 The sensor reader simulates two distance sensors and detects obstacles
-closer than 5 meters. It sends a heartbeat after successful processing,
-targeting a 100 ms cycle. Each reading has a 1% chance of containing
-malformed data, causing an intentional unhandled NumberFormatException
-that terminates the sensor reader.
+closer than 5 meters. HeartbeatSender independently schedules heartbeats
+every 100 ms. Each sensor reading has a 1% chance of containing malformed
+data, causing an unhandled NumberFormatException. As processing exits,
+try-with-resources stops the heartbeat scheduler and closes the socket,
+allowing the sensor-reader process to terminate.
 
 The monitor reports one warning after 500 ms without a matching heartbeat,
 or after 10 seconds if no initial heartbeat arrives. It keeps listening
