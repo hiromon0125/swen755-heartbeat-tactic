@@ -14,7 +14,7 @@ public final class Monitor {
 
     public static void main(String[] args) {
         try(DatagramSocket receiver = new DatagramSocket(4445)){
-            receiver.setSoTimeout(50); // Wait 50 ms for a packet before timing out
+            receiver.setSoTimeout(50); // Wait 50 ms for a packet before timing out, prevents blocking indefinitely
             long lastHeartbeatNanos = 0;
             boolean heartbeatReceived = false;
             boolean failureReported = false;
