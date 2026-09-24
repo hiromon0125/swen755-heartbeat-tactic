@@ -24,15 +24,18 @@ public final class SensorReader {
         int port = 4445;
         // Convert cycle interval from milliseconds to nanoseconds
         long cycleIntervalNanos = TimeUnit.MILLISECONDS.toNanos(CYCLE_INTERVAL_MS);
-        // Create a DatagramSocket for sending heartbeat messages
-        try (DatagramSocket socket = new DatagramSocket()) {
-            // Create a HeartbeatSender instance to send heartbeat messages
-            HeartbeatSender heartbeatSender = HeartbeatSender.create(
-                    socket,
-                    "SensorReader191",
-                    address,
-                    port
-                    );
+        /**
+         * Create a DatagramSocket and a HeartbeatSender to send periodic heartbeat messages.
+         * On exception, the heartbeat sender is closed, followed by the socket, and the program exits.
+         */
+        try (DatagramSocket socket = new DatagramSocket();
+                HeartbeatSender heartbeatSender = HeartbeatSender.create(
+                        socket, 
+                        "SensorReader191",
+                        address,
+                        port)) {
+            // Start sending heartbeat messages in a separate thread
+            heartbeatSender.start();
             while (true) {
                 // Record the start time of the cycle
                 long cycleStartNanos = System.nanoTime();
@@ -48,8 +51,6 @@ public final class SensorReader {
 
                 System.out.println("Sensor 2: distance=" + distance2
                         + " meters, obstacleDetected=" + obstacle2);
-                // Send a heartbeat message to indicate the service is alive
-                heartbeatSender.sendMessage();
                 // Calculate elapsed time and remaining time to maintain a consistent cycle interval
                 long elapsedNanos = System.nanoTime() - cycleStartNanos;
                 long remainingNanos = cycleIntervalNanos - elapsedNanos;
@@ -58,7 +59,10 @@ public final class SensorReader {
                     TimeUnit.NANOSECONDS.sleep(remainingNanos);
                 } 
             }
-        } 
+
+        }
+
+
     }
 
     /**

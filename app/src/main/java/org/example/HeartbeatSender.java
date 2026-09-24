@@ -4,17 +4,22 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 
-/** Sends one heartbeat whenever sendMessage is called **/
-public class HeartbeatSender  {
+/** Sends periodic heartbeats after start() is called**/
+public class HeartbeatSender implements AutoCloseable {
     private final DatagramSocket udpSocket;
     private final String serviceId;
     private final InetAddress address;
     private final int port;
 
+    private final ScheduledExecutorService scheduler = 
+            Executors.newSingleThreadScheduledExecutor();
 
-
+    private static final long SENDING_INTERVAL_MS = 100;
 
     protected HeartbeatSender(
             DatagramSocket udpSocket,
@@ -43,6 +48,27 @@ public class HeartbeatSender  {
                 );
     }
 
+    /**
+     * Starts sending heartbeat messages at a fixed interval defined by SENDING_INTERVAL_MS.
+     * 
+     * 
+     */
+    public void start() {
+        scheduler.scheduleAtFixedRate(
+                () ->  {
+                    try {
+                        sendMessage();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                },
+                0,
+                SENDING_INTERVAL_MS,
+                TimeUnit.MILLISECONDS
+                );
+
+    }
+
 
     public void sendMessage() throws IOException {
         HeartbeatMessage message = HeartbeatMessage.createOk(this.serviceId);
@@ -56,6 +82,12 @@ public class HeartbeatSender  {
                 );
         udpSocket.send(packet);
         System.out.println("Sent heartbeat: " + message);
+    }
+
+    @Override
+    public void close() {
+        scheduler.close();
+
     }
 
 }
