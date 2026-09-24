@@ -39,10 +39,10 @@ public final class SensorReader {
                 // Record the start time of the cycle
                 long cycleStartNanos = System.nanoTime();
                 // Read distances from two sensors and detect obstacles
-                double distance1 = sensor1.readDistanceMeters();
+                double distance1 = Double.parseDouble(sensor1.readRawDistance());
                 boolean obstacle1 = detector.detectObstacle(distance1);
 
-                double distance2 = sensor2.readDistanceMeters();
+                double distance2 = Double.parseDouble(sensor2.readRawDistance());
                 boolean obstacle2 = detector.detectObstacle(distance2);
                 // Print the readings and detection results to the console
                 System.out.println("Sensor 1: distance =" + distance1
@@ -69,15 +69,21 @@ public final class SensorReader {
      *  Generates one simultaed random distance reading per call to readDistanceMeters() method.
      */
     private static class Sensor {
+        private static final double CORRUPTION_PROBABILITY = 0.1; // 1% chance of corruption
         private final Random rand = new Random();
-
+        
         /**
-         * Simulates reading a distance measurement of an object from a sensor in meters.
-         * @return A random distance value between 0 and 20 meters.
+         * Simulates reading a raw distance measurement from a sensor, which may be corrupted.
+         * 7.x is a smulated corrupted reading that is not a valid numeric value.
+         * @return A string representing the distance measurement, which may be a valid numeric value or a corrupted value.
          */
-        private double readDistanceMeters() {
-            return rand.nextDouble() * 20; // Random distance between 0 and 20 meters
+        private String readRawDistance() {
+            if (rand.nextDouble() <= CORRUPTION_PROBABILITY) {
+                return "7.x"; // Simulated corrupted numeric reading
+            }
+            return Double.toString(rand.nextDouble() * 20);
         }
+        
 
 
     }
