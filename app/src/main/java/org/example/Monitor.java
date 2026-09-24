@@ -15,6 +15,7 @@ public final class Monitor {
     public static void main(String[] args) {
         try(DatagramSocket receiver = new DatagramSocket(4445)){
             receiver.setSoTimeout(50); // Wait 50 ms for a packet before timing out, prevents blocking indefinitely
+            long monitorStartNanos = System.nanoTime();
             long lastHeartbeatNanos = 0;
             boolean heartbeatReceived = false;
             boolean failureReported = false;
@@ -40,10 +41,25 @@ public final class Monitor {
                 catch (SocketTimeoutException e) {
                     // No packet arrived during this wait. Continue to the health check below
                 }
-                // Check if a heartbeat has been received and if elapsed time since last heartbeat exceeds threshold (500 ms)
-                if (heartbeatReceived && !failureReported && (System.nanoTime() - lastHeartbeatNanos) > TimeUnit.MILLISECONDS.toNanos(500)) {
-                    System.out.println("Heartbeat Timeout : No heartbeat received for 500 ms. Service might be down.");
-                    failureReported = true;
+                // Check if the heartbeat has been received within the expected time frame
+                long now = System.nanoTime();
+                // Allow 10 seconds for the first heartbeat.
+                // After that, report a timeout after 500 ms without a matching heartbeat.
+                if (!failureReported) {
+                    if (!heartbeatReceived
+                            && now - monitorStartNanos >= TimeUnit.SECONDS.toNanos(10)) {
+                        System.out.println(
+                                "Startup timeout: no heartbeat received from SensorReader191."
+                                );
+                        failureReported = true;
+
+                    } else if (heartbeatReceived
+                            && now - lastHeartbeatNanos >= TimeUnit.MILLISECONDS.toNanos(500)) {
+                        System.out.println(
+                                "Heartbeat timeout: SensorReader191 may have failed."
+                                );
+                        failureReported = true;
+                    }
                 }
 
 
