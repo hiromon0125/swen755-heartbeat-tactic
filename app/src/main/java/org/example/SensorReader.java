@@ -48,10 +48,14 @@ public final class SensorReader {
         @Override
         public void run() {
             Random rand = new Random(seed);
+            ObstacleDetector detector = new ObstacleDetector();
+            
 
             while (true) {
-                System.out.println("Raw sensor " + seed + " data output: " + rand.nextInt());
-
+                double distanceMeters = rand.nextDouble() * 20; // Simulate sensor data between 0 and 20 meters
+                boolean obstacleDetected = detector.detectObstacle(distanceMeters);
+                System.out.println("Raw sensor " + seed + " data output: " + distanceMeters + " meters. Obstacle detected: " + obstacleDetected);
+                
                 try {
                     Thread.sleep(rand.nextInt(100, 500));
                 } catch (InterruptedException e) {
