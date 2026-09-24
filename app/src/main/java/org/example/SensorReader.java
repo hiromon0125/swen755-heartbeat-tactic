@@ -69,7 +69,7 @@ public final class SensorReader {
      *  Generates one simultaed random distance reading per call to readDistanceMeters() method.
      */
     private static class Sensor {
-        private static final double CORRUPTION_PROBABILITY = 0.1; // 1% chance of corruption
+        private static final double CORRUPTION_PROBABILITY = 0.01; // 1% chance of corruption
         private final Random rand = new Random();
         
         /**
