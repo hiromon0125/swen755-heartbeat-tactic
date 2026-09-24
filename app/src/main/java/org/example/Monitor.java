@@ -4,7 +4,9 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.SocketException;
+import java.net.SocketTimeoutException;
 import java.util.Arrays;
+import java.util.concurrent.TimeUnit;
 
 /** Entry point for the monitor process. */
 public final class Monitor {
@@ -12,25 +14,46 @@ public final class Monitor {
 
     public static void main(String[] args) {
         try(DatagramSocket receiver = new DatagramSocket(4445)){
+            receiver.setSoTimeout(50); // Wait 50 ms for a packet before timing out
+            long lastHeartbeatNanos = 0;
+            boolean heartbeatReceived = false;
+            boolean failureReported = false;
+
             while(true) {
+                // Create a buffer to hold incoming UDP packets
                 byte[] buffer = new byte[4096];
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
-                
-                // Wait for a UDP packet
-                receiver.receive(packet);
-                // Deserialize the packet into a HeartbeatMessage
-                HeartbeatMessage message = HeartbeatMessage.fromByteArray(Arrays.copyOf(packet.getData(), packet.getLength()));
-                
-                // Print the heartbeat message
-                System.out.println("Received heartbeat : message = " + message.toString());
+                try {
+                    // Wait for a UDP packet
+                    receiver.receive(packet);
+                    // Deserialize the packet into a HeartbeatMessage
+                    HeartbeatMessage message = HeartbeatMessage.fromByteArray(Arrays.copyOf(packet.getData(), packet.getLength()));
+                    // Update flags for successful heartbeat reception
+                    if ("SensorReader191".equals(message.getServiceId())) {
+                        lastHeartbeatNanos = System.nanoTime();
+                        heartbeatReceived = true;
+                        failureReported = false;
+                        // Print the heartbeat message
+                        System.out.println("Received heartbeat :" + message.toString());
+                    }
+                }
+                catch (SocketTimeoutException e) {
+                    // No packet arrived during this wait. Continue to the health check below
+                }
+                // Check if a heartbeat has been received and if elapsed time since last heartbeat exceeds threshold (500 ms)
+                if (heartbeatReceived && !failureReported && (System.nanoTime() - lastHeartbeatNanos) > TimeUnit.MILLISECONDS.toNanos(500)) {
+                    System.out.println("Heartbeat Timeout : No heartbeat received for 500 ms. Service might be down.");
+                    failureReported = true;
+                }
+
+
+
             }
-            
-            
-            
+
         } catch (IOException e) {
-            
+
             e.printStackTrace();
         }
-        
+
     }
 }
