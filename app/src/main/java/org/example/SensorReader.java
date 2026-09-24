@@ -19,7 +19,7 @@ public final class SensorReader {
         int port = 4445;
 
         HeartbeatSender heartbeatSender = HeartbeatSender.create(
-                new DatagramSocket(port, address),
+                new DatagramSocket(),
                 "SensorReader191",
                 address,
                 port
