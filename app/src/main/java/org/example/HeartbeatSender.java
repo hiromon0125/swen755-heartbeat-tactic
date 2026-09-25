@@ -8,25 +8,26 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-/** Regularly sends a heartbeat signal to a receiver **/
-public class HeartbeatSender implements Runnable {
-    private final long sendingIntervalMs;
+
+/** Sends periodic heartbeats after start() is called**/
+public class HeartbeatSender implements AutoCloseable {
     private final DatagramSocket udpSocket;
     private final String serviceId;
     private final InetAddress address;
     private final int port;
 
+    private final ScheduledExecutorService scheduler = 
+            Executors.newSingleThreadScheduledExecutor();
 
-    public static final long DEFAULT_INTERVAL_MS = 100L;
+    private static final long SENDING_INTERVAL_MS = 100;
 
     protected HeartbeatSender(
-            long sendingIntervalMs,
             DatagramSocket udpSocket,
             String serviceId,
             InetAddress address,
             int port
-    ) {
-        this.sendingIntervalMs = sendingIntervalMs;
+            ) {
+
         this.udpSocket = udpSocket;
         this.serviceId = serviceId;
         this.address = address;
@@ -34,69 +35,59 @@ public class HeartbeatSender implements Runnable {
     }
 
     public static HeartbeatSender create(
-        long sendingIntervalMs,
-        DatagramSocket udpSocket,
-        String serviceId,
-        InetAddress address,
-        int port
-    ) {
-        return new HeartbeatSender(
-                sendingIntervalMs,
-                udpSocket,
-                serviceId,
-                address,
-                port
-        );
-    }
-
-    public static HeartbeatSender create(
             DatagramSocket udpSocket,
             String serviceId,
             InetAddress address,
             int port
-    ) {
-        return HeartbeatSender.create(
-                DEFAULT_INTERVAL_MS,
+            ) {
+        return new HeartbeatSender(
                 udpSocket,
                 serviceId,
                 address,
                 port
-        );
+                );
     }
 
     /**
-     * Starting the thread begins sending heartbeat messages.
+     * Starts sending heartbeat messages at a fixed interval defined by SENDING_INTERVAL_MS.
+     * 
+     * 
      */
-    @Override
-    public void run() {
-        System.out.println("Heartbeat for service " + serviceId + " started.");
-
-        ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
-        executorService.scheduleAtFixedRate(
-                this::sendMessage,
+    public void start() {
+        scheduler.scheduleAtFixedRate(
+                () ->  {
+                    try {
+                        sendMessage();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                },
                 0,
-                sendingIntervalMs,
+                SENDING_INTERVAL_MS,
                 TimeUnit.MILLISECONDS
-        );
+                );
+
     }
 
-    private void sendMessage() {
-        HeartbeatMessage message = HeartbeatMessage.createOk(this.serviceId);
-        System.out.println("Sent message: " + message);
-        byte[] messageBytes = message.toByteArray();
 
+    public void sendMessage() throws IOException {
+        HeartbeatMessage message = HeartbeatMessage.createOk(this.serviceId);
+        byte[] messageBytes = message.toByteArray();
+        // Build the UDP packet with the serialized message and send it to the monitor
         DatagramPacket packet = new DatagramPacket(
                 messageBytes,
                 messageBytes.length,
                 this.address,
                 this.port
-        );
+                );
+        udpSocket.send(packet);
+        System.out.println("Sent heartbeat: " + message);
+    }
 
-        try {
-            udpSocket.send(packet);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+    @Override
+    public void close() {
+        scheduler.close();
+
     }
 
 }

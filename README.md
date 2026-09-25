@@ -1,6 +1,7 @@
 # Heartbeat tactic
 
-Requires Java 21. The Gradle wrapper downloads Gradle and dependencies on the first run.
+Uses Java 21, Gradle, and Apache Commons Lang for heartbeat serialization.
+Guava and JUnit are also declared in the build configuration.
 
 Start the monitor:
 
@@ -15,8 +16,18 @@ Start the sensor reader in a separate terminal:
 ```
 
 These launch independent Java entry points: `org.example.Monitor` and
-`org.example.SensorReader`. Both currently print a startup message and exit;
-add the monitoring and sensor-reading loops in their respective `main` methods.
+`org.example.SensorReader`, communicating over UDP on Localhost:4445.
+
+The sensor reader simulates two distance sensors and detects obstacles
+closer than 5 meters. HeartbeatSender independently schedules heartbeats
+every 100 ms. Each sensor reading has a 1% chance of containing malformed
+data, causing an unhandled NumberFormatException. As processing exits,
+try-with-resources stops the heartbeat scheduler and closes the socket,
+allowing the sensor-reader process to terminate.
+
+The monitor reports one warning after 500 ms without a matching heartbeat,
+or after 10 seconds if no initial heartbeat arrives. It keeps listening
+and resumes monitoring when matching heartbeats arrive again.
 
 The scripts work from any working directory and forward Gradle options. To pass
 application arguments, use `./start-monitor.sh --args="..."` or
@@ -30,4 +41,4 @@ You can also run the tasks directly (including on Windows with `gradlew.bat`):
 ./gradlew :app:build
 ```
 
-The original sample `:app:run` task remains available.
+The `:app:run` task also starts the sensor reader.
