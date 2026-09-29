@@ -2,4 +2,5 @@
 set -eu
 
 PROJECT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-exec "$PROJECT_DIR/gradlew" -p "$PROJECT_DIR" :app:runSensorReader "$@"
+"$PROJECT_DIR/gradlew" -p "$PROJECT_DIR" :app:installDist --quiet
+exec "$PROJECT_DIR/app/build/install/app/bin/app" "$@"

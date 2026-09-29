@@ -37,7 +37,7 @@ java {
 
 application {
     // Define the main class for the application.
-    mainClass = "heartbeat.reader.SensorReader"
+    mainClass = "heartbeat.reader.SensorReaderLauncher"
 }
 
 tasks.register<JavaExec>("runMonitor") {
@@ -53,5 +53,13 @@ tasks.register<JavaExec>("runSensorReader") {
     description = "Starts the sensor reader process."
     classpath = sourceSets.main.get().runtimeClasspath
     mainClass = "heartbeat.reader.SensorReader"
+    standardInput = System.`in`
+}
+
+tasks.register<JavaExec>("runSensorReaders") {
+    group = "application"
+    description = "Starts and supervises a sensor reader primary/backup pair."
+    classpath = sourceSets.main.get().runtimeClasspath
+    mainClass = "heartbeat.reader.SensorReaderLauncher"
     standardInput = System.`in`
 }

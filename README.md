@@ -9,32 +9,39 @@ Start the monitor:
 ./start-monitor.sh
 ```
 
-Start the sensor reader in a separate terminal:
+Start a primary/backup pair for each sensor in a separate terminal:
 
 ```sh
-./start-sensor-reader.sh
+./start-sensor-reader.sh front 3
+./start-sensor-reader.sh rear
 ```
 
-Pass the channel name followed by a sensor ID (defaults: `sensor-reader`, `sensor-1`).
-Readers with the same sensor ID form a primary/backup group. Launch each command
-in a separate terminal after starting the monitor:
+Arguments are `[sensor-name] [backup-budget]`, passed directly to the script:
 
 ```sh
-./start-sensor-reader.sh --args="front-reader front"
-./start-sensor-reader.sh --args="front-backup front"
-./start-sensor-reader.sh --args="rear-reader rear"
-./start-sensor-reader.sh --args="rear-backup rear"
+./start-sensor-reader.sh front 1  # Primary + one backup; no replacements after either exits
+./start-sensor-reader.sh front 3  # Primary + up to three backups over the whole run
+./start-sensor-reader.sh front    # Unlimited replacements; at most two readers at once
+./start-sensor-reader.sh          # Generated sensor name, unlimited replacements
+./start-sensor-reader.sh "" 3     # Generated sensor name, finite backup budget
 ```
 
-These commands create two independent sensor groups with two readers each. The
-first healthy reader discovered by the monitor becomes primary for that sensor;
-the other remains backup. Processes must be launched explicitly: the application
-does not create backup processes. More than one backup per sensor is supported.
-Each process generates a service ID from its channel name plus a random UUID.
-The ID is logged at startup and reused for that run.
+The backup budget must be at least 1 and includes the initial backup. An omitted
+or empty budget allows unlimited replacements. The launcher uses Java
+`ProcessBuilder` to start two separate reader JVMs, checks for exits every second,
+and replenishes the pair while budget remains. When exhausted, surviving readers
+continue until they exit. Ctrl+C stops the launcher and its children. Child logs
+appear in the launcher's terminal. A generated sensor name keeps separate unnamed
+launcher invocations in separate sensor groups.
+
+The monitor assigns primary and backup roles based on incoming heartbeats; the
+launcher manages process count, not roles. It restarts exited processes, not
+processes that remain alive but stop sending heartbeats. Each reader gets a unique
+channel name and generates a service ID for its run.
 
 These launch independent Java entry points: `heartbeat.monitor.Monitor` and
-`heartbeat.reader.SensorReader`. Heartbeat messages are broadcast through JGroups in
+`heartbeat.reader.SensorReaderLauncher` (which launches `heartbeat.reader.SensorReader`
+children). Heartbeat messages are broadcast through JGroups in
 cluster `heartbeat-tactic`, using its bundled `udp.xml` protocol stack (UDP
 transport and multicast discovery). Both processes must use the same network
 interface and have UDP multicast available. The former raw UDP port 4445 is no
@@ -56,19 +63,20 @@ independently. It reports one warning per service after 500 ms without a heartbe
 or a startup warning after 10 seconds if no service has sent a heartbeat. It keeps
 listening and resumes monitoring a service when its heartbeats arrive again.
 
-The scripts work from any working directory and forward Gradle options. To pass
-application arguments, use `./start-monitor.sh --args="..."` or
-`./start-sensor-reader.sh --args="..."`.
+Both scripts work from any working directory. `start-sensor-reader.sh` builds the
+application distribution, then runs the launcher with its positional arguments.
+`start-monitor.sh` continues to forward Gradle options.
 
 You can also run the tasks directly (including on Windows with `gradlew.bat`):
 
 ```sh
 ./gradlew :app:runMonitor
-./gradlew :app:runSensorReader
+./gradlew :app:runSensorReaders --args="front 3"
 ./gradlew :app:build
 ```
 
-The `:app:run` task also starts the sensor reader.
+The `:app:run` task also starts the pair launcher. To start a single reader for
+manual debugging, use `./gradlew :app:runSensorReader --args="front-reader front"`.
 
 Sensor readers implement JGroups `Receiver`. Membership views identify the
 monitor; the monitor issues primary assignments through the same JGroups UDP
@@ -102,6 +110,9 @@ tests use an injected clock and fixed sensor readings. UDP integration tests ver
 heartbeats from primary and backup readers, sender shutdown, and monitor-triggered
 promotion with four readers while all JGroups members remain connected. Local UDP
 multicast is required. Full process crashes and network partitions are not simulated.
+
+Launcher tests also cover argument parsing, initial pair creation, finite and
+unlimited replenishment, the two-process limit, and cleanup after launch failure.
 
 The HTML test report is generated at `app/build/reports/tests/test/index.html`.
 
