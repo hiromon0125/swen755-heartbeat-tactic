@@ -1,19 +1,19 @@
 package heartbeat.reader;
 
-import heartbeat.PrimaryAssignment;
-
-import org.jgroups.JChannel;
-import org.jgroups.View;
-import org.jgroups.protocols.SHARED_LOOPBACK;
-import org.jgroups.protocols.SHARED_LOOPBACK_PING;
-import org.jgroups.protocols.pbcast.GMS;
-import org.jgroups.protocols.pbcast.NAKACK2;
-import org.jgroups.protocols.UNICAST3;
-import org.junit.Test;
-
 import java.util.UUID;
 
-import static org.junit.Assert.*;
+import org.jgroups.JChannel;
+import org.jgroups.protocols.SHARED_LOOPBACK;
+import org.jgroups.protocols.SHARED_LOOPBACK_PING;
+import org.jgroups.protocols.UNICAST3;
+import org.jgroups.protocols.pbcast.GMS;
+import org.jgroups.protocols.pbcast.NAKACK2;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertTrue;
+import org.junit.Test;
+
+import heartbeat.PrimaryAssignment;
 
 public class SensorReaderTest {
     static final class CountingSensor extends Sensor {
@@ -79,7 +79,7 @@ public class SensorReaderTest {
             channel.connect("authority-" + UUID.randomUUID());
             org.jgroups.Address monitor = org.jgroups.util.ExtendedUUID.randomUUID()
                     .put("monitor", new byte[] {1});
-            reader.viewAccepted(View.create(monitor, 1, monitor, channel.getAddress()));
+            reader.viewAccepted(org.jgroups.View.create(monitor, 1, monitor, channel.getAddress()));
             PrimaryAssignment assignment = new PrimaryAssignment("front", reader.serviceId(), 1500);
             reader.receive(new org.jgroups.ObjectMessage(null, assignment).setSrc(channel.getAddress()));
             reader.readCycle();
@@ -87,7 +87,7 @@ public class SensorReaderTest {
             reader.receive(new org.jgroups.ObjectMessage(null, assignment).setSrc(monitor));
             reader.readCycle();
             assertEquals(1, sensor.reads);
-            reader.viewAccepted(View.create(channel.getAddress(), 2, channel.getAddress()));
+            reader.viewAccepted(org.jgroups.View.create(channel.getAddress(), 2, channel.getAddress()));
             reader.readCycle();
             assertEquals(1, sensor.reads);
         }
@@ -139,4 +139,36 @@ public class SensorReaderTest {
         }
         assertEquals("Expected cluster membership", count, channel.getView().size());
     }
+
+    @Test
+    public void backupRestoresCheckpointWhenPromoted() throws Exception {
+        java.util.concurrent.atomic.AtomicLong clock = new java.util.concurrent.atomic.AtomicLong(1000);
+        CountingSensor sensor = new CountingSensor();
+        SensorReader reader = new SensorReader(sensor, new ObstacleDetector(), "front", clock::get);
+
+        try (JChannel channel = channel("reader")) {
+            reader.configureChannel(channel);
+            channel.connect("checkpoint-" + UUID.randomUUID());
+
+            // Establish a monitor.
+            org.jgroups.Address monitor = org.jgroups.util.ExtendedUUID.randomUUID().put("monitor", new byte[] {1});
+
+        reader.viewAccepted(org.jgroups.View.create(monitor, 1, monitor, channel.getAddress()));
+
+        // Simulate a checkpoint sent by the previous primary.
+        Checkpoint checkpoint = new Checkpoint("front", "old-primary", 5, 2.5, true);
+
+        reader.receive(new org.jgroups.ObjectMessage(null, checkpoint).setSrc(org.jgroups.util.ExtendedUUID.randomUUID()));
+
+        // Monitor promotes this backup to primary.
+        PrimaryAssignment assignment = new PrimaryAssignment("front", reader.serviceId(), 1500);
+
+        reader.receive(new org.jgroups.ObjectMessage(null, assignment).setSrc(monitor));
+
+        // Verify that the checkpoint state was restored.
+        assertEquals(5, reader.state().getReadingsProcessed());
+        assertEquals(2.5, reader.state().getLastDistance(), 0.001);
+        assertTrue(reader.state().isLastObstacleDetected());
+    }
+    }   
 }

@@ -8,8 +8,6 @@ import org.jgroups.Address;
 import org.jgroups.JChannel;
 import org.jgroups.Message;
 import org.jgroups.ObjectMessage;
-import org.jgroups.Receiver;
-import org.jgroups.View;
 import org.jgroups.logging.Log;
 import org.jgroups.logging.LogFactory;
 import org.jgroups.util.ExtendedUUID;
@@ -18,7 +16,7 @@ import heartbeat.HeartbeatChannel;
 import heartbeat.PrimaryAssignment;
 
 /** Entry point for the sensor reader process. */
-public final class SensorReader implements Receiver {
+public final class SensorReader implements org.jgroups.Receiver {
     private static final Log LOG = LogFactory.getLog(SensorReader.class);
     private static final long CYCLE_INTERVAL_MS = 100;
     private static final String SENSOR_MEMBER_KEY = "sensor-reader";
@@ -30,6 +28,9 @@ public final class SensorReader implements Receiver {
     private String serviceId;
     private final Sensor sensor;
     private final ObstacleDetector detector;
+    private final SensorState state = new SensorState();
+    private volatile Checkpoint latestCheckpoint;
+    private JChannel channel;
 
     public SensorReader(Sensor sensor, ObstacleDetector detector) {
         this(sensor, detector, "sensor-1", System::currentTimeMillis);
@@ -69,6 +70,7 @@ public final class SensorReader implements Receiver {
     }
 
     void configureChannel(JChannel channel) {
+        this.channel = channel;
         if (serviceId == null)
             serviceId = getServiceId(channel.getName());
         channel.addAddressGenerator(() -> ExtendedUUID.randomUUID()
@@ -77,7 +79,7 @@ public final class SensorReader implements Receiver {
     }
 
     @Override
-    public void viewAccepted(View view) {
+    public void viewAccepted(org.jgroups.View view) {
         LOG.info("%s: membership changed", serviceId);
         Address monitor = view.getMembers().stream()
                 .filter(member -> member instanceof ExtendedUUID id && id.get("monitor") != null)
@@ -91,9 +93,14 @@ public final class SensorReader implements Receiver {
 
     @Override
     public void receive(Message message) {
-        if (monitorAddress != null && monitorAddress.equals(message.getSrc())
-                && message instanceof ObjectMessage && message.getObject() instanceof PrimaryAssignment next) {
-            acceptAssignment(next);
+        Object object = message.getObject();
+
+        if (object instanceof PrimaryAssignment assignment) {
+            if(java.util.Objects.equals(message.getSrc(), monitorAddress)) {
+                acceptAssignment(assignment);
+            }
+        } else if (object instanceof Checkpoint checkpoint) {
+            acceptCheckpoint(checkpoint);
         }
     }
 
@@ -116,6 +123,7 @@ public final class SensorReader implements Receiver {
 
     private void becomePrimary() {
         if (role != Role.PRIMARY) {
+            restoreCheckpoint();
             // Enable reading on the main thread without blocking the JGroups callback.
             role = Role.PRIMARY;
             LOG.info("%s: became primary", serviceId);
@@ -153,9 +161,60 @@ public final class SensorReader implements Receiver {
     private void readAndReportDistance() {
         double distance = Double.parseDouble(sensor.readRawDistance());
         boolean obstacleDetected = detector.detectObstacle(distance);
+
+        state.update(distance, obstacleDetected);
+
         LOG.info("%s: read sensor distance=%.2f m, obstacle=%s", serviceId, distance, obstacleDetected);
+
+        sendCheckpoint();
     }
 
+    SensorState state() {
+        return state;
+    }
+    
+    private void sendCheckpoint() {
+        if (role != Role.PRIMARY) {
+            return;
+        }
+
+        Checkpoint checkpoint = new Checkpoint(sensorId, serviceId, state.getReadingsProcessed(), state.getLastDistance(), state.isLastObstacleDetected());
+
+        try {
+            channel.send(new ObjectMessage(null,checkpoint));
+            LOG.info("%s: sent checkpoint after %d readings", serviceId, state.getReadingsProcessed());
+            
+        } catch (Exception e) {
+            LOG.warn("%s: failed to send checkpoint: %s", serviceId, e.getMessage());
+        }
+    }
+
+    private void acceptCheckpoint(Checkpoint checkpoint) {
+        if (checkpoint.getServiceId().equals(serviceId)) {
+            return;
+        }
+
+        if (!checkpoint.getSensorId().equals(sensorId)) {
+            return;
+        }
+
+        latestCheckpoint = checkpoint;
+
+        LOG.info("%s: received checkpoint from %s after %d readings", serviceId, checkpoint.getServiceId(), checkpoint.getReadingsProcessed());
+    }
+    
+    private void restoreCheckpoint() {
+        Checkpoint checkpoint = latestCheckpoint;
+
+        if (checkpoint == null) {
+            LOG.info("%s: no checkpoint available to restore", serviceId);
+            return;
+        }
+
+        state.restore(checkpoint.getReadingsProcessed(), checkpoint.getLastDistance(), checkpoint.isLastObstacleDetected());
+
+        LOG.info("%s: restored checkpoint from %s after %d readings", serviceId, checkpoint.getServiceId(), checkpoint.getReadingsProcessed());
+    }
     private enum Role {
         PRIMARY,
         BACKUP;

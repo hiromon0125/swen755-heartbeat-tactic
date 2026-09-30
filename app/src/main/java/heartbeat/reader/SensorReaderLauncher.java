@@ -1,14 +1,14 @@
 package heartbeat.reader;
 
-import org.jgroups.logging.Log;
-import org.jgroups.logging.LogFactory;
-
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+
+import org.jgroups.logging.Log;
+import org.jgroups.logging.LogFactory;
 
 /** Keeps a primary/backup pair of reader processes available for one sensor. */
 public final class SensorReaderLauncher implements AutoCloseable {
