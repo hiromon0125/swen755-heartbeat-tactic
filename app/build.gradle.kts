@@ -16,6 +16,8 @@ repositories {
 }
 
 dependencies {
+    implementation("org.jgroups:jgroups:5.4.12.Final")
+
     // Use JUnit test framework.
     testImplementation(libs.junit)
 
@@ -35,14 +37,14 @@ java {
 
 application {
     // Define the main class for the application.
-    mainClass = "org.example.SensorReader"
+    mainClass = "heartbeat.reader.SensorReaderLauncher"
 }
 
 tasks.register<JavaExec>("runMonitor") {
     group = "application"
     description = "Starts the monitor process."
     classpath = sourceSets.main.get().runtimeClasspath
-    mainClass = "org.example.Monitor"
+    mainClass = "heartbeat.monitor.Monitor"
     standardInput = System.`in`
 }
 
@@ -50,6 +52,14 @@ tasks.register<JavaExec>("runSensorReader") {
     group = "application"
     description = "Starts the sensor reader process."
     classpath = sourceSets.main.get().runtimeClasspath
-    mainClass = "org.example.SensorReader"
+    mainClass = "heartbeat.reader.SensorReader"
+    standardInput = System.`in`
+}
+
+tasks.register<JavaExec>("runSensorReaders") {
+    group = "application"
+    description = "Starts and supervises a sensor reader primary/backup pair."
+    classpath = sourceSets.main.get().runtimeClasspath
+    mainClass = "heartbeat.reader.SensorReaderLauncher"
     standardInput = System.`in`
 }

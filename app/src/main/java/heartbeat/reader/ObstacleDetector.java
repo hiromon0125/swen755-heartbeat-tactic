@@ -1,4 +1,4 @@
-package org.example;
+package heartbeat.reader;
 
 public class ObstacleDetector {
 
